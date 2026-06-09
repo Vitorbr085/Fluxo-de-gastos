@@ -641,7 +641,7 @@ function makeCategoryInput(section, row, idx) {
       list="${listId}"
       value="${esc(value)}"
       placeholder="Categoria"
-      onkeydown="if(event.key==='Enter') recalc()"
+      onkeydown="if(event.key==='Enter'){ this.blur(); recalc(); }"
       oninput="updCat('${section}',${idx},this.value)">
     <datalist id="${listId}">
       ${categoryOptions(section)}
@@ -661,11 +661,11 @@ function renderSection(sectionId) {
     div.className = 'entry-row';
     const isMobileDevice = isMobile();
     div.innerHTML = `
-      <input type="text" value="${esc(row.desc||'')}" placeholder="Descrição" onkeydown="if(event.key==='Enter') recalc()" oninput="upd('${sectionId}',${i},'desc',this.value)" ${isMobileDevice ? 'class="mobile-input"' : ''}>
+      <input type="text" value="${esc(row.desc||'')}" placeholder="Descrição" onkeydown="if(event.key==='Enter'){ this.blur(); recalc(); }" oninput="upd('${sectionId}',${i},'desc',this.value)" ${isMobileDevice ? 'class="mobile-input"' : ''}>
       <div class="category-cell">
         ${makeCategoryInput(sectionId, row, i)}
       </div>
-      <input type="number" value="${row.val||""}" placeholder="0,00" min="0" step="0.01" onkeydown="if(event.key==='Enter') recalc()" oninput="upd('${sectionId}',${i},'val',this.value)" ${isMobileDevice ? 'class="mobile-input"' : ''}>
+      <input type="number" value="${row.val||""}" placeholder="0,00" min="0" step="0.01" onkeydown="if(event.key==='Enter'){ this.blur(); recalc(); }" oninput="upd('${sectionId}',${i},'val',this.value)" ${isMobileDevice ? 'class="mobile-input"' : ''}>
       <button class="del-btn" onclick="delRow('${sectionId}',${i})" title="Remover"><i class="ti ti-trash"></i></button>`;
     el.appendChild(div);
   });
