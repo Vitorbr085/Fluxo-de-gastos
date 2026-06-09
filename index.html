@@ -100,6 +100,15 @@
   .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); z-index: 1000; align-items: center; justify-content: center; animation: fadeIn 0.15s; padding: 1rem; }
   .modal.show { display: flex; }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .auth-screen { position: fixed; inset: 0; background: rgba(0,0,0,0.82); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem; }
+  .auth-screen.hide { display: none; }
+  .auth-card { width: min(420px,100%); background: var(--surface); border-radius: var(--radius-lg); padding: 2rem; box-shadow: 0 24px 60px rgba(0,0,0,0.3); color: var(--text); }
+  .auth-card h2 { margin-bottom: 0.75rem; font-size: 1.5rem; }
+  .auth-card p { margin-bottom: 1.25rem; color: var(--text3); }
+  .auth-card label { display: block; margin-top: 1rem; margin-bottom: 0.35rem; font-size: 0.9rem; color: var(--text3); }
+  .auth-card input { width: 100%; margin-bottom: 0.75rem; }
+  .auth-card .btn { width: 100%; justify-content: center; }
+  .auth-error { min-height: 1.25rem; margin-top: 0.75rem; color: var(--red); font-size: 0.95rem; }
   .modal-content { background: var(--surface); border-radius: var(--radius-lg); padding: 2rem; max-width: 500px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.15); }
   .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
   .modal-title { font-size: 18px; font-weight: 600; }
@@ -394,9 +403,23 @@
     <button class="btn btn-green" onclick="exportCSV()"><i class="ti ti-download"></i> CSV</button>
     <button class="theme-btn" id="theme-toggle" title="Alternar tema"><i class="ti ti-moon"></i></button>
     <button class="settings-btn" id="settings-btn" title="Configurações"><i class="ti ti-settings"></i></button>
+    <button class="btn" id="logout-btn" onclick="logoutUser()" title="Sair" style="display:none"><i class="ti ti-logout"></i> Sair</button>
     <button class="btn" onclick="clearMonth()" title="Limpar mês atual"><i class="ti ti-trash"></i></button>
   </div>
 </header>
+
+<div class="auth-screen" id="auth-screen">
+  <div class="auth-card">
+    <h2>Entrar no Painel</h2>
+    <p>Digite seu usuário e senha para acessar o controle do fluxo.</p>
+    <label for="login-user">Usuário</label>
+    <input type="text" id="login-user" placeholder="Usuário" autocomplete="username" onkeydown="if(event.key==='Enter') loginUser()">
+    <label for="login-pass">Senha</label>
+    <input type="password" id="login-pass" placeholder="Senha" autocomplete="current-password" onkeydown="if(event.key==='Enter') loginUser()">
+    <button class="btn btn-green" onclick="loginUser()">Entrar</button>
+    <div class="auth-error" id="auth-error" aria-live="assertive"></div>
+  </div>
+</div>
 
 <main>
   <div class="summary-grid">
@@ -580,6 +603,10 @@ let currentMonth = 0, currentYear = 2026, chartInst = null;
 let chartType = 'bar';
 let currentPalette = 0;
 let currentTheme = localStorage.getItem('theme') || 'auto';
+let authenticatedUser = null;
+const USERS_KEY = 'fcaixa_users';
+const AUTH_KEY = 'fcaixa_auth';
+const DEFAULT_USERS = [{ username: 'admin', password: 'admin123', name: 'Administrador' }];
 
 function storageKey(m, y) { return `fcaixa_${y}_${m}`; }
 function currentKey() { return storageKey(currentMonth, currentYear); }
@@ -946,6 +973,75 @@ function loadMonth() {
   }
 }
 
+function loadUsers() {
+  try {
+    const raw = localStorage.getItem(USERS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length) return parsed;
+    }
+  } catch (e) {
+    // Ignorar erros e recriar lista padrão
+  }
+  localStorage.setItem(USERS_KEY, JSON.stringify(DEFAULT_USERS));
+  return [...DEFAULT_USERS];
+}
+
+function saveUsers(users) {
+  localStorage.setItem(USERS_KEY, JSON.stringify(users));
+}
+
+function getAuthenticatedUser() {
+  const login = localStorage.getItem(AUTH_KEY);
+  if (!login) return null;
+  const users = loadUsers();
+  return users.find(user => user.username === login) || null;
+}
+
+function showLoginScreen() {
+  document.getElementById('auth-screen').classList.remove('hide');
+  document.getElementById('login-user').focus();
+  document.getElementById('logout-btn').style.display = 'none';
+}
+
+function hideLoginScreen() {
+  document.getElementById('auth-screen').classList.add('hide');
+  document.getElementById('logout-btn').style.display = 'inline-flex';
+}
+
+function loginUser() {
+  const username = document.getElementById('login-user').value.trim();
+  const password = document.getElementById('login-pass').value;
+  const users = loadUsers();
+  const matched = users.find(user => user.username === username && user.password === password);
+  const errorEl = document.getElementById('auth-error');
+  if (!matched) {
+    errorEl.textContent = 'Usuário ou senha inválidos.';
+    return;
+  }
+  authenticatedUser = matched;
+  localStorage.setItem(AUTH_KEY, matched.username);
+  errorEl.textContent = '';
+  hideLoginScreen();
+  renderAll();
+}
+
+function logoutUser() {
+  localStorage.removeItem(AUTH_KEY);
+  authenticatedUser = null;
+  showLoginScreen();
+}
+
+function initAuth() {
+  authenticatedUser = getAuthenticatedUser();
+  if (!authenticatedUser) {
+    showLoginScreen();
+    return false;
+  }
+  hideLoginScreen();
+  return true;
+}
+
 document.getElementById('prev-btn').onclick = () => {
   if (currentMonth === 0) { currentMonth = 11; currentYear--; } else { currentMonth--; }
   saveMonth();
@@ -1125,7 +1221,9 @@ window.addEventListener('load', () => {
   });
   
   updateMonthLabel();
-  renderAll();
+  if (initAuth()) {
+    renderAll();
+  }
 });
 
 // Atualizar tema ao mudar preferência do SO
